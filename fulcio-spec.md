@@ -2,8 +2,7 @@ Spec: Fulcio
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this document are to be interpreted as described in \[RFC 2119\](https://www.ietf.org/rfc/rfc2119.txt).
 
-Overview
-========
+# Overview
 
 Artifact signing classically required the management of a signing key. Verification policies must specify a mapping between a verification key and the artifacts which the key can verify. Self-managed keys require a) distribution, b) storage, and c) a revocation mechanism. Distribution is the process of publicly describing the mapping between verification keys and artifacts. Typically as a verifier, this mapping is implicitly trusted on first use (TOFU), and then persisted for future verifications. Storage refers to how the signing key is managed. This might be on a personal flash drive, or in a cloud environment using a key management service. This requires protection of the key material, either through on-disk encryption or appropriate ACLs when stored in the cloud. If the signing key is lost or compromised, a revocation mechanism is required to mark the key as revoked for verifiers. Additionally, a new key must be distributed to clients. As a verifier, how do I trust an update to the mapping between key and artifacts, and differentiate between a valid update and an update due to a malicious compromise? Additionally, revocation is plagued with issues around indefinitely-growing revocation list size and difficulty in distributing these large and frequently updated lists to verifiers.
 
@@ -11,15 +10,13 @@ Sigstore aims to simplify signing by removing the problems introduced by managin
 
 To issue code-signing certificates, Sigstore primarily supports OpenID Connect identities through Fulcio, a certificate authority that binds OpenID Connect identities to public keys and writes issued certificates to a publicly auditable transparency log. While Fulcio primarily focuses on OpenID Connect identities, it also offers support for other identity systems like SPIFFE and Kubernetes service accounts, for added flexibility.To issue code-signing certificates, Sigstore created Fulcio, a certificate authority that binds OpenID Connect identities to public keys, and writes issued certificates to a publicly auditable transparency log.
 
-Timestamping
-------------
+## Timestamping
 
 The certificates that Fulcio issues are short-lived. By using ephemeral keys and short-lived certificates, Fulcio avoids the need for revocation lists. To verify a short-lived certificate, a timestamping service is needed to verify that the issued certificate was valid during artifact signing. Sigstore clients can leverage either Sigstore's own timestamping transparency service ([Spec: Timestamping Service](https://docs.google.com/document/d/1FoRHXejIhXwEai0RS3iRsN1HfCV16fJOp582Vl8KA7A/edit#heading=h.dal05eqvj5ql)[Spec: Transparency Service](https://docs.google.com/document/d/1NQUBSL9R64_vPxUEgVKGb0p81_7BVZ7PQuI078WFn-g/edit#)) that implements or a timestamp authority ([RFC 3161](https://www.ietf.org/rfc/rfc3161.txt)) to provide a trusted timestamp.
 
 A signed timestamp provides a record of a signing event. The signed timestamp MUST be created over the artifact signature to associate a timestamp with a signing event. This proves possession of an artifact signing key at time of signature issuance.
 
-Identity
---------
+## Identity
 
 Fulcio is both a certificate authority and a registration authority, meaning that Fulcio handles authentication logic when issuing a certificate.
 
@@ -41,12 +38,12 @@ Fulcio-issued certificates do not distinguish between tokens provided directly b
 
 A credential SHOULD be a JSON Web Token (JWT) OpenID Connect ID token that conforms to the [OpenID Connect specification](https://openid.net/specs/openid-connect-core-1_0.html#IDToken). The JWT MUST contain:
 
-*   \`aud\`, the audience of the token, set to \`sigstore\`
-*   \`iss\`, the issuer of the token
-*   \`exp\`, the expiration of the token
-*   \`iat\`, the time of token issuance
+- \`aud\`, the audience of the token, set to \`sigstore\`
+- \`iss\`, the issuer of the token
+- \`exp\`, the expiration of the token
+- \`iat\`, the time of token issuance
 
-The JWT must also include a claim to represent user identity. This is configurable for each supported provider. Common claims include \`sub\` and \`email\_address\`.
+The JWT must also include a claim to represent user identity. This is configurable for each supported provider. Common claims include \`sub\` and \`email_address\`.
 
 ### Machine Identity
 
@@ -56,24 +53,22 @@ Using machine identities instead of human identifiers provides privacy benefits,
 
 See [Spec: Fulcio](https://docs.google.com/document/d/1W5xp3g8_jaqzDQmIvepNYsWb-bQNc0U2ZQgQ700Kjok/edit#heading=h.lrl46qy6806e) for more information about required certificate extensions.
 
-Keys
-----
+## Keys
 
 Note that Fulcio can be used with self-managed keys, as described in a [Sigstore blog post](https://blog.sigstore.dev/adopting-sigstore-incrementally-1b56a69b8c15). Fulcio does not enforce the use of ephemeral keys. The signer may have experience with managing keys and appropriately locking down the signing key, for example through the use of an HSM or ACLs. Fulcio still provides benefits through a tighter integration with Sigstore and simplifying the verification policy.
 
-Issuance - Life of a Request
-============================
+# Issuance - Life of a Request
 
 The client submits a certificate request to Fulcio. The certificate request MUST contain a certificate request described subsequently and OpenID Connect (OIDC) identity token. This is a signed JWT containing information about the principal (identity of the client), the issuer (who issued the identity token - Google, Microsoft, GitHub, etc.) and additional metadata such as expiration. The principal identity can either be a signing identity in the form of an email or username, or a workload identity. The certificate request MUST contain either:
 
-*   A public key and signed challenge. This is the public portion of a cryptographic key pair generated by the client. The public key will be embedded in the issued X.509 certificate. The challenge proves the client is in possession of the private key that corresponds to the public key provided. The challenge SHOULD be created by signing the subject (\`sub\`) of the OIDC identity token.
-*   A PKCS#10 ([RFC2986](https://www.rfc-editor.org/rfc/rfc2986)) certificate signing request (CSR), which also provides a proof of possession and the public key. The CSR subject MAY contain the subject of the OIDC ID token, but there is no mandate to do so, as Fulcio will not check that the subject of the CSR matches the subject of the token.
+- A public key and signed challenge. This is the public portion of a cryptographic key pair generated by the client. The public key will be embedded in the issued X.509 certificate. The challenge proves the client is in possession of the private key that corresponds to the public key provided. The challenge SHOULD be created by signing the subject (\`sub\`) of the OIDC identity token.
+- A PKCS#10 ([RFC2986](https://www.rfc-editor.org/rfc/rfc2986)) certificate signing request (CSR), which also provides a proof of possession and the public key. The CSR subject MAY contain the subject of the OIDC ID token, but there is no mandate to do so, as Fulcio will not check that the subject of the CSR matches the subject of the token.
 
 Fulcio MUST authenticate the OIDC ID token. To authenticate, Fulcio MUST follow the [OIDC specification](https://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation), which includes the following steps:
 
-*   Use the issuer claim from the token to find the issuer's OIDC discovery endpoint
-*   Download the issuer's verification keys from the discovery endpoint
-*   Verify the ID token signature
+- Use the issuer claim from the token to find the issuer's OIDC discovery endpoint
+- Download the issuer's verification keys from the discovery endpoint
+- Verify the ID token signature
 
 Fulcio does not support MAC-based authentication.
 
@@ -81,10 +76,10 @@ Once the client has been authenticated, Fulcio MUST verify the client is in poss
 
 Fulcio now creates and signs a code-signing certificate for the identity from the ID token. Fulcio MUST:
 
-*   Embed the provided public key in the certificate
-*   Set the certificate's Subject Alternative Name (who the certificate is issued for) to match the identity from the OIDC ID token. This could be an email, SPIFFE ID, or CI workflow identity
-*   Include the OIDC ID token issuer in a custom field in the certificate
-*   Set various X.509 extensions depending on the metadata in the OIDC ID token claims (e.g. CI workflow information)
+- Embed the provided public key in the certificate
+- Set the certificate's Subject Alternative Name (who the certificate is issued for) to match the identity from the OIDC ID token. This could be an email, SPIFFE ID, or CI workflow identity
+- Include the OIDC ID token issuer in a custom field in the certificate
+- Set various X.509 extensions depending on the metadata in the OIDC ID token claims (e.g. CI workflow information)
 
 Signing MAY include a call to a remote key management service, if the CA signing key does not live in-memory.
 
@@ -92,8 +87,7 @@ Fulcio SHOULD append the issued certificate to an immutable, append-only, crypto
 
 Fulcio finally returns the certificate to the client.
 
-Certificate Transparency
-========================
+# Certificate Transparency
 
 Fulcio maintains a certificate transparency (CT) log, writing all issued certificates to the log.
 
@@ -109,20 +103,17 @@ To verify an entry, a verifier must either query the log for an inclusion proof 
 
 SCTs can either be embedded in a certificate or detached from the certificate. Fulcio prefers embedding SCTs in certificates. If an SCT is detached, this means that Fulcio returns the SCT alongside the certificate, and it's up to the caller to store the SCT.
 
-Sharding
---------
+## Sharding
 
 A CT log can grow indefinitely, only bounded by the size of the underlying database. A large CT log will take longer for auditors to verify, and will also increase the burden on log replicators. Therefore, log operators need to create log shards, where after a certain period, a new log is turned up and the old log is frozen, accepting no more entries.
 
 A log operator MUST create new log shards periodically. If temporarily sharded, the log operator SHOULD include either the year or month in the log name, depending on the frequency. For more details refer to [Spec: Transparency Service](https://docs.google.com/document/d/1NQUBSL9R64_vPxUEgVKGb0p81_7BVZ7PQuI078WFn-g/edit#heading=h.6w69n885z90t) and [Spec: Sigstore Public Deployment](https://docs.google.com/document/d/1C0naS8dP-k5c8z-kKa06ijyunYc8hswIwTY1nPm2M5g/edit#heading=h.sa2gitou4fkm)
 
-Threat Model
-============
+# Threat Model
 
 See [Sigstore Threat Model (for website)](https://docs.google.com/document/d/13-nbmKqMqTUhsHc9L6V0j_8AWb5O-7f1qSpNyVFHbdQ/edit#heading=h.gj8hr3dbhp5z) for a more thorough analysis.
 
-Threats
--------
+## Threats
 
 We consider two threats, a malicious or misconfigured identity provider or CA.
 
@@ -130,8 +121,7 @@ A malicious identity provider can craft a cryptographically valid identity token
 
 A malicious CA can craft a cryptographically valid certificate that can be verified with a trusted root certificate. This certificate will include tampered identity claims. A malicious, or misconfigured, CA can choose to ignore values in the identity token when issuing a certificate. A malicious CA could also issue an extra certificate for each request, bound to a key it controls.
 
-Mitigations
------------
+## Mitigations
 
 Certificate transparency mitigates the threats of malicious or misconfigured identity providers and CAs. Certificates are issued to publicly auditable, append-only logs. An identity owner MUST monitor the log for occurrences of their identity, and alert the ecosystem if they find any unexpected instances in the log. If the identity owner does not, then the CA could misissue certificates, or a malicious identity provider could issue a token that is used to issue a valid certificate.
 
@@ -139,20 +129,17 @@ A certificate verifier MUST check either an inclusion proof or promise of inclus
 
 In addition to the identity owner monitoring the log, there must exist a set of witnesses that verify the integrity and consistency of the log, verifying that the log remains append-only. This mitigates the risk of a malicious log operator that tampers with the log contents.
 
-Architecture
-============
+# Architecture
 
 Fulcio supports various signing backends that are responsible for key management, certificate generation and signing.
 
 An identity service MUST sign certificates with either secured on-disk keys or a remote key management service.
 
-Public Key Infrastructure
--------------------------
+## Public Key Infrastructure
 
 Fulcio supports a PKI where either Fulcio is an intermediate CA or a root CA. Fulcio SHOULD be an intermediate CA, so that the intermediate CA certificate can be rotated and shorter lived without changing a longer-lived root. In this model, the root CA SHOULD be offline and only accessed when requesting an intermediate certificate.
 
-Signing
--------
+## Signing
 
 ### KMS
 
@@ -188,11 +175,9 @@ The on-disk file-based signing backend loads a password-protected private key an
 
 Ephemeral CAs create the key material in memory and destroy the key material on server turndown. Ephemeral CAs MUST NOT be used for production.
 
-Certificate Profile
-===================
+# Certificate Profile
 
-Root Certificate
-----------------
+## Root Certificate
 
 A root certificate MUST:
 
@@ -232,8 +217,7 @@ from being issued beneath the root
 
 \* Specify other values in the Subject
 
-Intermediate Certificate
-------------------------
+## Intermediate Certificate
 
 An intermediate certificate MUST:
 
@@ -281,8 +265,7 @@ An intermediate certificate MAY:
 
 \* Be optional. An end-entity certificate MAY be issued from a root certificate or an intermediate certificate. Clients MUST be able to verify a chain with any number of intermediate certificates.
 
-Issued Certificate
-------------------
+## Issued Certificate
 
 An issued certificate MUST:
 
@@ -362,15 +345,13 @@ An issued certificate MAY:
 
 See [https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md) for information about required claims in the CI workflow identity tokens and the corresponding X.509 extensions.
 
-API
-===
+# API
 
 Fulcio’s API is defined using protobuf and can be accessed over HTTP or gRPC.
 
 The protobuf specification for gPRC is provided [here](https://github.com/sigstore/fulcio/blob/main/fulcio.proto). The HTTP API schema is rendered as a swagger spec, available [here](https://github.com/sigstore/fulcio/blob/main/fulcio.swagger.json).
 
-Request Certificate
--------------------
+## Request Certificate
 
 \`\`\`
 
@@ -394,7 +375,7 @@ message CreateSigningCertificateRequest {
 
 \*/
 
-Credentials credentials = 1 \[(google.api.field\_behavior) = REQUIRED\];
+Credentials credentials = 1 \[(google.api.field_behavior) = REQUIRED\];
 
 oneof key {
 
@@ -406,7 +387,7 @@ oneof key {
 
 \*/
 
-PublicKeyRequest public\_key\_request = 2 \[(google.api.field\_behavior) = REQUIRED\];
+PublicKeyRequest public_key_request = 2 \[(google.api.field_behavior) = REQUIRED\];
 
 /\*
 
@@ -428,7 +409,7 @@ PublicKeyRequest public\_key\_request = 2 \[(google.api.field\_behavior) = REQUI
 
 \*/
 
-bytes certificate\_signing\_request = 3 \[(google.api.field\_behavior) = REQUIRED\];
+bytes certificate_signing_request = 3 \[(google.api.field_behavior) = REQUIRED\];
 
 }
 
@@ -444,7 +425,7 @@ oneof credentials {
 
 \*/
 
-string oidc\_identity\_token = 1;
+string oidc_identity_token = 1;
 
 }
 
@@ -458,7 +439,7 @@ message PublicKeyRequest {
 
 \*/
 
-PublicKey public\_key = 1 \[(google.api.field\_behavior) = REQUIRED\];
+PublicKey public_key = 1 \[(google.api.field_behavior) = REQUIRED\];
 
 /\*
 
@@ -470,7 +451,7 @@ PublicKey public\_key = 1 \[(google.api.field\_behavior) = REQUIRED\];
 
 \*/
 
-bytes proof\_of\_possession = 2 \[(google.api.field\_behavior) = REQUIRED\];
+bytes proof_of_possession = 2 \[(google.api.field_behavior) = REQUIRED\];
 
 }
 
@@ -492,7 +473,7 @@ PublicKeyAlgorithm algorithm = 1;
 
 \*/
 
-string content = 2 \[(google.api.field\_behavior) = REQUIRED\];
+string content = 2 \[(google.api.field_behavior) = REQUIRED\];
 
 }
 
