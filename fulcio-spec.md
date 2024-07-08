@@ -1,6 +1,8 @@
-Spec: Fulcio
+# Fulcio - Certificate Authority for Code Signing 
 
-The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this document are to be interpreted as described in \[RFC 2119\](https://www.ietf.org/rfc/rfc2119.txt).
+This document describes Fulcio, a certificate authority for issuing code signing certificates for an OpenID Connect (OIDC) identity, such as email address. 
+
+The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this document are to be interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
 
 # 1. Overview
 
