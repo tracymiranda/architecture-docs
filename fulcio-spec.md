@@ -2,7 +2,7 @@ Spec: Fulcio
 
 The key words "MUST", "MUST NOT", "SHOULD", "SHOULD NOT", and "MAY" in this document are to be interpreted as described in \[RFC 2119\](https://www.ietf.org/rfc/rfc2119.txt).
 
-# Overview
+# 1. Overview
 
 Artifact signing classically required the management of a signing key. Verification policies must specify a mapping between a verification key and the artifacts which the key can verify. Self-managed keys require a) distribution, b) storage, and c) a revocation mechanism. Distribution is the process of publicly describing the mapping between verification keys and artifacts. Typically as a verifier, this mapping is implicitly trusted on first use (TOFU), and then persisted for future verifications. Storage refers to how the signing key is managed. This might be on a personal flash drive, or in a cloud environment using a key management service. This requires protection of the key material, either through on-disk encryption or appropriate ACLs when stored in the cloud. If the signing key is lost or compromised, a revocation mechanism is required to mark the key as revoked for verifiers. Additionally, a new key must be distributed to clients. As a verifier, how do I trust an update to the mapping between key and artifacts, and differentiate between a valid update and an update due to a malicious compromise? Additionally, revocation is plagued with issues around indefinitely-growing revocation list size and difficulty in distributing these large and frequently updated lists to verifiers.
 
@@ -10,13 +10,13 @@ Sigstore aims to simplify signing by removing the problems introduced by managin
 
 To issue code-signing certificates, Sigstore primarily supports OpenID Connect identities through Fulcio, a certificate authority that binds OpenID Connect identities to public keys and writes issued certificates to a publicly auditable transparency log. While Fulcio primarily focuses on OpenID Connect identities, it also offers support for other identity systems like SPIFFE and Kubernetes service accounts, for added flexibility.To issue code-signing certificates, Sigstore created Fulcio, a certificate authority that binds OpenID Connect identities to public keys, and writes issued certificates to a publicly auditable transparency log.
 
-## Timestamping
+## 1.1. Timestamping
 
 The certificates that Fulcio issues are short-lived. By using ephemeral keys and short-lived certificates, Fulcio avoids the need for revocation lists. To verify a short-lived certificate, a timestamping service is needed to verify that the issued certificate was valid during artifact signing. Sigstore clients can leverage either Sigstore's own timestamping transparency service ([Spec: Timestamping Service](https://docs.google.com/document/d/1FoRHXejIhXwEai0RS3iRsN1HfCV16fJOp582Vl8KA7A/edit#heading=h.dal05eqvj5ql)[Spec: Transparency Service](https://docs.google.com/document/d/1NQUBSL9R64_vPxUEgVKGb0p81_7BVZ7PQuI078WFn-g/edit#)) that implements or a timestamp authority ([RFC 3161](https://www.ietf.org/rfc/rfc3161.txt)) to provide a trusted timestamp.
 
 A signed timestamp provides a record of a signing event. The signed timestamp MUST be created over the artifact signature to associate a timestamp with a signing event. This proves possession of an artifact signing key at time of signature issuance.
 
-## Identity
+## 1.2. Identity
 
 Fulcio is both a certificate authority and a registration authority, meaning that Fulcio handles authentication logic when issuing a certificate.
 
@@ -26,7 +26,7 @@ Overall, for Fulcio-issued certificates, a verifier MUST check both the identifi
 
 Identities must be presented to Fulcio signed by a trusted party. The OpenID Connect protocol was chosen as the initial authentication mechanism for signers, considering that a user is likely to already have an identity on a well-known provider, and integration for other providers should be straightforward if they conform to the protocol.
 
-### OpenID Connect
+### 1.2.1. OpenID Connect
 
 Identity is provided by the OpenID Connect (OIDC) framework, an authentication extension to OAuth 2.0. Fulcio accepts OIDC ID tokens from a configured list of identity providers (IDPs). Before certificate issuance, Fulcio verifies the signed OIDC ID token, and extracts the identity from the ID token. Fulcio is designed to be easily extensible and can be configured with any IDP that conforms to the OIDC specification. Fulcio accepts a variety of identities, including email addresses, [SPIFFE IDs](https://spiffe.io/docs/latest/spiffe-about/spiffe-concepts/#spiffe-id), Kubernetes service accounts, CI (e.g. GitHub Actions, GitLab, Buildkite) workflow identities, and custom URIs and usernames. Identity is specified in the Subject Alternative Name ([SAN](https://datatracker.ietf.org/doc/html/rfc5280#section-4.2.1.6)). For CI, additional identity and provenance metadata is included in custom extensions as defined in [OID Info](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md).
 
@@ -38,14 +38,14 @@ Fulcio-issued certificates do not distinguish between tokens provided directly b
 
 A credential SHOULD be a JSON Web Token (JWT) OpenID Connect ID token that conforms to the [OpenID Connect specification](https://openid.net/specs/openid-connect-core-1_0.html#IDToken). The JWT MUST contain:
 
-- \`aud\`, the audience of the token, set to \`sigstore\`
-- \`iss\`, the issuer of the token
-- \`exp\`, the expiration of the token
-- \`iat\`, the time of token issuance
+   * `aud`, the audience of the token, set to \`sigstore\`
+   * `iss`, the issuer of the token
+   * `exp`, the expiration of the token
+   * `iat`, the time of token issuance
 
-The JWT must also include a claim to represent user identity. This is configurable for each supported provider. Common claims include \`sub\` and \`email_address\`.
+The JWT must also include a claim to represent user identity. This is configurable for each supported provider. Common claims include `sub` and `email_address`.
 
-### Machine Identity
+### 1.2.2. Machine Identity
 
 Fulcio issues certificates not only for user-based identifiers but also machine identities. These can be specified through [SPIFFE IDs](https://spiffe.io/docs/latest/spiffe-about/spiffe-concepts/#spiffe-id), Kubernetes service accounts, or CI workflow identifiers. These identifiers will include information about the environment that the workflow occurred in. This could include the Kubernetes cluster, Cloud project, or source repository.
 
@@ -53,15 +53,15 @@ Using machine identities instead of human identifiers provides privacy benefits,
 
 See [Spec: Fulcio](https://docs.google.com/document/d/1W5xp3g8_jaqzDQmIvepNYsWb-bQNc0U2ZQgQ700Kjok/edit#heading=h.lrl46qy6806e) for more information about required certificate extensions.
 
-## Keys
+## 1.2. Keys
 
 Note that Fulcio can be used with self-managed keys, as described in a [Sigstore blog post](https://blog.sigstore.dev/adopting-sigstore-incrementally-1b56a69b8c15). Fulcio does not enforce the use of ephemeral keys. The signer may have experience with managing keys and appropriately locking down the signing key, for example through the use of an HSM or ACLs. Fulcio still provides benefits through a tighter integration with Sigstore and simplifying the verification policy.
 
-# Issuance - Life of a Request
+# 2. Issuance - Life of a Request
 
 The client submits a certificate request to Fulcio. The certificate request MUST contain a certificate request described subsequently and OpenID Connect (OIDC) identity token. This is a signed JWT containing information about the principal (identity of the client), the issuer (who issued the identity token - Google, Microsoft, GitHub, etc.) and additional metadata such as expiration. The principal identity can either be a signing identity in the form of an email or username, or a workload identity. The certificate request MUST contain either:
 
-- A public key and signed challenge. This is the public portion of a cryptographic key pair generated by the client. The public key will be embedded in the issued X.509 certificate. The challenge proves the client is in possession of the private key that corresponds to the public key provided. The challenge SHOULD be created by signing the subject (\`sub\`) of the OIDC identity token.
+- A public key and signed challenge. This is the public portion of a cryptographic key pair generated by the client. The public key will be embedded in the issued X.509 certificate. The challenge proves the client is in possession of the private key that corresponds to the public key provided. The challenge SHOULD be created by signing the subject (`sub`) of the OIDC identity token.
 - A PKCS#10 ([RFC2986](https://www.rfc-editor.org/rfc/rfc2986)) certificate signing request (CSR), which also provides a proof of possession and the public key. The CSR subject MAY contain the subject of the OIDC ID token, but there is no mandate to do so, as Fulcio will not check that the subject of the CSR matches the subject of the token.
 
 Fulcio MUST authenticate the OIDC ID token. To authenticate, Fulcio MUST follow the [OIDC specification](https://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation), which includes the following steps:
@@ -72,7 +72,7 @@ Fulcio MUST authenticate the OIDC ID token. To authenticate, Fulcio MUST follow 
 
 Fulcio does not support MAC-based authentication.
 
-Once the client has been authenticated, Fulcio MUST verify the client is in possession of the private key of the public key they’ve submitted. Fulcio MUST verify the signed challenge or CSR. For a signed challenge, this MUST be a signature over the identity claim of the ID token, which SHOULD be the \`sub\` claim but MAY be a non-standard claim as Fulcio supports configuration of this claim. The challenge and CSR are verified using the provided public key.
+Once the client has been authenticated, Fulcio MUST verify the client is in possession of the private key of the public key they’ve submitted. Fulcio MUST verify the signed challenge or CSR. For a signed challenge, this MUST be a signature over the identity claim of the ID token, which SHOULD be the `sub` claim but MAY be a non-standard claim as Fulcio supports configuration of this claim. The challenge and CSR are verified using the provided public key.
 
 Fulcio now creates and signs a code-signing certificate for the identity from the ID token. Fulcio MUST:
 
@@ -87,7 +87,7 @@ Fulcio SHOULD append the issued certificate to an immutable, append-only, crypto
 
 Fulcio finally returns the certificate to the client.
 
-# Certificate Transparency
+# 3. Certificate Transparency
 
 Fulcio maintains a certificate transparency (CT) log, writing all issued certificates to the log.
 
@@ -103,17 +103,17 @@ To verify an entry, a verifier must either query the log for an inclusion proof 
 
 SCTs can either be embedded in a certificate or detached from the certificate. Fulcio prefers embedding SCTs in certificates. If an SCT is detached, this means that Fulcio returns the SCT alongside the certificate, and it's up to the caller to store the SCT.
 
-## Sharding
+## 3.1. Sharding
 
 A CT log can grow indefinitely, only bounded by the size of the underlying database. A large CT log will take longer for auditors to verify, and will also increase the burden on log replicators. Therefore, log operators need to create log shards, where after a certain period, a new log is turned up and the old log is frozen, accepting no more entries.
 
 A log operator MUST create new log shards periodically. If temporarily sharded, the log operator SHOULD include either the year or month in the log name, depending on the frequency. For more details refer to [Spec: Transparency Service](https://docs.google.com/document/d/1NQUBSL9R64_vPxUEgVKGb0p81_7BVZ7PQuI078WFn-g/edit#heading=h.6w69n885z90t) and [Spec: Sigstore Public Deployment](https://docs.google.com/document/d/1C0naS8dP-k5c8z-kKa06ijyunYc8hswIwTY1nPm2M5g/edit#heading=h.sa2gitou4fkm)
 
-# Threat Model
+# 4. Threat Model
 
 See [Sigstore Threat Model (for website)](https://docs.google.com/document/d/13-nbmKqMqTUhsHc9L6V0j_8AWb5O-7f1qSpNyVFHbdQ/edit#heading=h.gj8hr3dbhp5z) for a more thorough analysis.
 
-## Threats
+## 4.1. Threats
 
 We consider two threats, a malicious or misconfigured identity provider or CA.
 
@@ -121,7 +121,7 @@ A malicious identity provider can craft a cryptographically valid identity token
 
 A malicious CA can craft a cryptographically valid certificate that can be verified with a trusted root certificate. This certificate will include tampered identity claims. A malicious, or misconfigured, CA can choose to ignore values in the identity token when issuing a certificate. A malicious CA could also issue an extra certificate for each request, bound to a key it controls.
 
-## Mitigations
+## 4.2. Mitigations
 
 Certificate transparency mitigates the threats of malicious or misconfigured identity providers and CAs. Certificates are issued to publicly auditable, append-only logs. An identity owner MUST monitor the log for occurrences of their identity, and alert the ecosystem if they find any unexpected instances in the log. If the identity owner does not, then the CA could misissue certificates, or a malicious identity provider could issue a token that is used to issue a valid certificate.
 
@@ -129,23 +129,23 @@ A certificate verifier MUST check either an inclusion proof or promise of inclus
 
 In addition to the identity owner monitoring the log, there must exist a set of witnesses that verify the integrity and consistency of the log, verifying that the log remains append-only. This mitigates the risk of a malicious log operator that tampers with the log contents.
 
-# Architecture
+# 5. Architecture
 
 Fulcio supports various signing backends that are responsible for key management, certificate generation and signing.
 
 An identity service MUST sign certificates with either secured on-disk keys or a remote key management service.
 
-## Public Key Infrastructure
+## 5.1. Public Key Infrastructure
 
 Fulcio supports a PKI where either Fulcio is an intermediate CA or a root CA. Fulcio SHOULD be an intermediate CA, so that the intermediate CA certificate can be rotated and shorter lived without changing a longer-lived root. In this model, the root CA SHOULD be offline and only accessed when requesting an intermediate certificate.
 
-## Signing
+## 5.2. Signing
 
-### KMS
+### 5.2.1. KMS
 
 The KMS signing backend uses cloud key management services (KMS) to generate a certificate signature. This requires setting up a KMS key with a cloud provider, such as AWS, GCP, Azure or Hashicorp Vault. On setup, the public key of the signer will need to be certified, providing a certificate chain. The CA can either run as an intermediate CA chaining up to an offline root CA, or as a root CA, though the KMS signing backend is primarily meant to be used as an intermediate CA.
 
-### Tink
+### 5.2.2. Tink
 
 The [Tink](https://github.com/google/tink) signing backend uses an on-disk signer loaded from an encrypted Tink keyset and
 
@@ -155,7 +155,7 @@ the Tink keyset. The Tink keyset MUST be encrypted with a KMS key, and stored in
 
 a JSON format. Tink keysets use strong security defaults and are the most secure way to store an encryption key locally.
 
-### Google Cloud Platform CA Service
+### 5.2.3. Google Cloud Platform CA Service
 
 The GCP CA Service signing backend delegates creation and signing of the certificates
 
@@ -163,344 +163,133 @@ to a CA managed in GCP. You will need to create a DevOps-tier CA pool and one CA
 
 CA pool. This can either be an intermediate or root CA.
 
-### PKCS#11 HSM
+### 5.2.4. PKCS#11 HSM
 
 PKCS#11 Hardware Security Module (HSM) support in Sigstore Fulcio enhances the security and trustworthiness of digital signatures by leveraging specialized cryptographic hardware. By integrating PKCS#11, Fulcio ensures that private keys used for signing are stored and managed in a highly secure, tamper-resistant environment. PKCS#11 HSM offers robust safeguards against key compromise and unauthorized accessThe PKCS11 signing backend supports using an HSM to sign certificates.
 
-### On-disk file - For testing
+### 5.2.5. On-disk file - For testing
 
 The on-disk file-based signing backend loads a password-protected private key and certificate chain, and also monitors for changes to either, reloading the key and chain without requiring a server reboot. This signer supports a CA as either a root or intermediate. This signer MUST NOT be used for production, since the private key is only password-protected and could be compromised with a weak password.
 
-### Ephemeral CA - For testing
+### 5.2.6 Ephemeral CA - For testing
 
 Ephemeral CAs create the key material in memory and destroy the key material on server turndown. Ephemeral CAs MUST NOT be used for production.
 
-# Certificate Profile
+# 6. Certificate Profile
 
-## Root Certificate
+## 6.1. Root Certificate
 
 A root certificate MUST:
 
-\* Specify a Subject with a common name and organization
-
-\* Specify an Issuer with the same values as the Subject
-
-\* Specify critical Key Usages for Certificate Sign and CRL Sign
-
-\* Specify critical Basic Constraints to \`CA:TRUE\`
-
-\* Specify a unique, random, positive, 160 bit serial number according to \[RFC5280 4.1.2.2\](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
-
-\* Specify a Subject Key Identifier
-
-\* Be compliant with \[RFC5280\](https://datatracker.ietf.org/doc/html/rfc5280)
+   * Specify a Subject with a common name and organization
+   * Specify an Issuer with the same values as the Subject
+   * Specify critical Key Usages for Certificate Sign and CRL Sign
+   * Specify critical Basic Constraints to `CA:TRUE`
+   * Specify a unique, random, positive, 160 bit serial number according to [RFC5280 4.1.2.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
+   * Specify a Subject Key Identifier
+   * Be compliant with [RFC5280](https://datatracker.ietf.org/doc/html/rfc5280)
 
 A root certificate MUST NOT:
 
-\* Specify other Key Usages besides Certificate Sign and CRL Sign
-
-\* Specify any Extended Key Usages
+   * Specify other Key Usages besides Certificate Sign and CRL Sign
+   * Specify any Extended Key Usages
 
 A root certificate SHOULD:
 
-\* Use the signing algorithm ECDSA NIST P-384 (secp384r1) or stronger, or RSA-4096
-
-\* Have a lifetime that does not require frequent rotation, such as 10 years
+   * Use the signing algorithm ECDSA NIST P-384 (secp384r1) or stronger, or RSA-4096
+   * Have a lifetime that does not require frequent rotation, such as 10 years
 
 A root certificate MAY:
 
-\* Specify a Basic Constraints path length constraint to prevent additional CA certificates
+   * Specify a Basic Constraints path length constraint to prevent additional CA certificates from being issued beneath the root
+   * Specify an Authority Key Identifier. If specified, it MUST be the same as the Subject Key Identifier
+   * Specify other values in the Subject
 
-from being issued beneath the root
-
-\* Specify an Authority Key Identifier. If specified, it MUST be the same as the Subject Key Identifier
-
-\* Specify other values in the Subject
-
-## Intermediate Certificate
+## 6.2 Intermediate Certificate
 
 An intermediate certificate MUST:
 
-\* Specify a Subject with a common name and organization
-
-\* Specify an Issuer equal to the parent certificate's Subject
-
-\* Specify critical Key Usages for Certificate Sign and CRL Sign
-
-\* Specify an Extended Key Usage for Code Signing
-
-\* Specify a lifetime that does not exceed the parent certificate
-
-\* Specify critical Basic Constraints to \`CA:TRUE\`
-
-\* Specify a unique, random, positive, 160 bit serial number according to \[RFC5280 4.1.2.2\](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
-
-\* Specify a Subject Key Identifier
-
-\* Specify an Authority Key Identifier equal to the parent certificate's Subject Key Identifier
-
-\* Be compliant with \[RFC5280\](https://datatracker.ietf.org/doc/html/rfc5280)
+   * Specify a Subject with a common name and organization
+   * Specify an Issuer equal to the parent certificate's Subject
+   * Specify critical Key Usages for Certificate Sign and CRL Sign
+   * Specify an Extended Key Usage for Code Signing
+   * Specify a lifetime that does not exceed the parent certificate
+   * Specify critical Basic Constraints to `CA:TRUE`
+   * Specify a unique, random, positive, 160 bit serial number according to [RFC5280 4.1.2.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
+   * Specify a Subject Key Identifier
+   * Specify an Authority Key Identifier equal to the parent certificate's Subject Key Identifier
+   *  Be compliant with [RFC5280](https://datatracker.ietf.org/doc/html/rfc5280)
 
 An intermediate certificate MUST NOT:
 
-\* Specify other Key Usages besides Certificate Sign and CRL Sign
-
-\* Specify other Extended Key Usages besides Code Signing
+   * Specify other Key Usages besides Certificate Sign and CRL Sign
+   * Specify other Extended Key Usages besides Code Signing
 
 An intermediate certificate SHOULD:
 
-\* Specify a Basic Constraints path length constraint of 0, \`pathlen:0\`. This limits the intermediate CA to only issue end-entity certificates
-
-\* Use the signing algorithm ECDSA NIST P-384 (secp384r1) or stronger, or RSA-4096
-
-\* Have a lifetime that does not require frequent rotation, such as 3 years
+   * Specify a Basic Constraints path length constraint of 0, `pathlen:0`. This limits the intermediate CA to only issue end-entity certificates
+   * Use the signing algorithm ECDSA NIST P-384 (secp384r1) or stronger, or RSA-4096
+   *  Have a lifetime that does not require frequent rotation, such as 3 years
 
 An intermediate certificate SHOULD NOT:
 
-\* Use a different signature scheme (ECDSA vs RSA) than its parent certificate, as some clients do not support this
-
-\* Specify the Extended Key Usage as critical
+   * Use a different signature scheme (ECDSA vs RSA) than its parent certificate, as some clients do not support this
+   * Specify the Extended Key Usage as critical
 
 An intermediate certificate MAY:
 
-\* Be optional. An end-entity certificate MAY be issued from a root certificate or an intermediate certificate. Clients MUST be able to verify a chain with any number of intermediate certificates.
+   * Be optional. An end-entity certificate MAY be issued from a root certificate or an intermediate certificate. Clients MUST be able to verify a chain with any number of intermediate certificates.
 
-## Issued Certificate
+## 6.3. Issued Certificate
 
 An issued certificate MUST:
 
-\* Specify exactly one GeneralName in the Subject Alternative Name extension, as a critical extension. It MUST be populated by either:
-
-\* An email address as an rfc822Name GeneralName
-
-\* A URI as a uniformResourceIdentifier GeneralName
-
-\* A username as an otherName GeneralName with OID \[\`1.3.6.1.4.1.57264.1.7\`\](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726417--othername-san)
-
-\* Specify an Issuer equal to the parent certificate's Subject
-
-\* Specify a critical Key Usage for Digital Signature
-
-\* Specify an Extended Key Usage for Code Signing
-
-\* Specify a lifetime that does not exceed the parent certificate
-
-\* Specify a unique, random, positive, 160 bit serial number according to \[RFC5280 4.1.2.2\](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
-
-\* Specify a Subject Key Identifier
-
-\* Specify an Authority Key Identifier equal to the parent certificate's Subject Key Identifier
-
-\* Specify an empty Subject
-
-\* Be compliant with [RFC5280](https://datatracker.ietf.org/doc/html/rfc5280)
-
-\* Specify a public key that is either:
-
-\* ECDSA NIST P-256, NIST P-384, or NIST P-521
-
-\* RSA of key size 2048 to 4096 (inclusive) with size % 8 = 0, E = 65537, and containing no weak primes
-
-\* ED25519
-
-\* Specify the OpenID Connect identity token issuer in a domain-specific OID. The OID SHOULD be \[\`1.3.6.1.4.1.57264.1.8\`\](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726418--issuer-v2). The OID MAY be \[\`1.3.6.1.4.1.57264.1.1\`\](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726411--issuer), which is deprecated but clients SHOULD still support it for previously issued certificates. The difference between \`1.3.6.1.4.1.57264.1.8\` and \`1.3.6.1.4.1.57264.1.1\` is that the former is formatted to the [RFC5280](https://datatracker.ietf.org/doc/html/rfc5280#section-4.1) specification as a DER-encoded string, whereas the latter is a raw string.
-
-\* Be appended to a Certificate Transparency log. Clients MUST NOT trust certificates that do not present either a proof of inclusion or a Signed Certificate Timestamp (SCT)
+   * Specify exactly one GeneralName in the Subject Alternative Name extension, as a critical extension. It MUST be populated by either:
+      * An email address as an rfc822Name GeneralName
+      * A URI as a uniformResourceIdentifier GeneralName
+      * A username as an otherName GeneralName with OID [`1.3.6.1.4.1.57264.1.7`](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726417--othername-san)
+   * Specify an Issuer equal to the parent certificate's Subject
+   * Specify a critical Key Usage for Digital Signature
+   * Specify an Extended Key Usage for Code Signing
+   * Specify a lifetime that does not exceed the parent certificate
+   * Specify a unique, random, positive, 160 bit serial number according to [RFC5280 4.1.2.2](https://www.rfc-editor.org/rfc/rfc5280.html#section-4.1.2.2)
+   * Specify a Subject Key Identifier
+   * Specify an Authority Key Identifier equal to the parent certificate's Subject Key Identifier
+   * Specify an empty Subject
+   * Be compliant with [RFC5280](https://datatracker.ietf.org/doc/html/rfc5280)
+   * Specify a public key that is either:
+      * ECDSA NIST P-256, NIST P-384, or NIST P-521
+      * RSA of key size 2048 to 4096 (inclusive) with size % 8 = 0, E = 65537, and containing no weak primes
+      * ED25519
+   * Specify the OpenID Connect identity token issuer in a domain-specific OID. The OID SHOULD be [`1.3.6.1.4.1.57264.1.8`](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726418--issuer-v2). The OID MAY be [`1.3.6.1.4.1.57264.1.1`](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md#1361415726411--issuer), which is deprecated but clients SHOULD still support it for previously issued certificates. The difference between `1.3.6.1.4.1.57264.1.8` and `1.3.6.1.4.1.57264.1.1` is that the former is formatted to the [RFC5280](https://datatracker.ietf.org/doc/html/rfc5280#section-4.1) specification as a DER-encoded string, whereas the latter is a raw string.
+   * Be appended to a Certificate Transparency log. Clients MUST NOT trust certificates that do not present either a proof of inclusion or a Signed Certificate Timestamp (SCT)
 
 An issued certificate MUST NOT:
 
-\* Specify a nonempty Subject
+   * Specify a nonempty Subject
+   * Specify multiple GeneralName values in the Subject Alternative Name extension
+   * Specify other Key Usages besides Digital Signature
+   * Specify other Extended Key Usages besides Code Signing
 
-\* Specify multiple GeneralName values in the Subject Alternative Name extension
-
-\* Specify other Key Usages besides Digital Signature
-
-\* Specify other Extended Key Usages besides Code Signing
 
 An issued certificate SHOULD:
 
-\* Use an ephemeral key. A client MAY request a certificate with a long-lived key, but a client MUST adequately secure the key material
-
-\* Append a precertificate to a Certificate Transparency log, where the precertificate MUST be signed by the certificate authority and MUST include a poison extension with OID \`1.3.6.1.4.1.11129.2.4.3\`
-
-\* Specify the Signed Certificate Timestamp (SCT) from the Certificate Transparency log with OID \`1.3.6.1.4.1.11129.2.4.2\`
+   * Use an ephemeral key. A client MAY request a certificate with a long-lived key, but a client MUST adequately secure the key material
+   * Append a precertificate to a Certificate Transparency log, where the precertificate MUST be signed by the certificate authority and MUST include a poison extension with OID `1.3.6.1.4.1.11129.2.4.3`
+   *  Specify the Signed Certificate Timestamp (SCT) from the Certificate Transparency log with OID `1.3.6.1.4.1.11129.2.4.2`
 
 An issued certificate SHOULD NOT:
 
-\* Use a different public key scheme (ECDSA vs RSA) than its parent certificate, as some clients do not support this
-
-\* Specify a public key that is stronger than its parent certificate. As weaknesses in keys are found, an issued certificate should be weakened before its parent, since once the parent key is compromised, it can issue new certificates.
+   * Use a different public key scheme (ECDSA vs RSA) than its parent certificate, as some clients do not support this
+   * Specify a public key that is stronger than its parent certificate. As weaknesses in keys are found, an issued certificate should be weakened before its parent, since once the parent key is compromised, it can issue new certificates.
 
 An issued certificate MAY:
 
-\* Specify Basic Constraints to \`CA:FALSE\`
+   * Specify Basic Constraints to `CA:FALSE`
+   * Specify values from the OpenID Connect identity token in OIDs prefixed with `1.3.6.1.4.1.57264.1`, such as values from a CI workflow
+   * Specify multiple SCTs with OID `1.3.6.1.4.1.11129.2.4.2`, denoting that the certificate has been appended to multiple logs
+   * Specify the Signed Certificate Timestamp (SCT) in a response header `SCT` instead of embedding the SCT in the certificate
 
-\* Specify values from the OpenID Connect identity token in OIDs prefixed with \`1.3.6.1.4.1.57264.1\`, such as values from a CI workflow
-
-\* Specify multiple SCTs with OID \`1.3.6.1.4.1.11129.2.4.2\`, denoting that the certificate has been appended to multiple logs
-
-\* Specify the Signed Certificate Timestamp (SCT) in a response header \`SCT\` instead of embedding the SCT in the certificate
-
-### CI workflows
+### 6.3.1. CI workflows
 
 See [https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md](https://github.com/sigstore/fulcio/blob/main/docs/oid-info.md) for information about required claims in the CI workflow identity tokens and the corresponding X.509 extensions.
-
-# API
-
-Fulcio’s API is defined using protobuf and can be accessed over HTTP or gRPC.
-
-The protobuf specification for gPRC is provided [here](https://github.com/sigstore/fulcio/blob/main/fulcio.proto). The HTTP API schema is rendered as a swagger spec, available [here](https://github.com/sigstore/fulcio/blob/main/fulcio.swagger.json).
-
-## Request Certificate
-
-\`\`\`
-
-rpc CreateSigningCertificate (CreateSigningCertificateRequest) returns (SigningCertificate){
-
-option (google.api.http) = {
-
-post: "/api/v2/signingCert"
-
-body: "\*"
-
-};
-
-}
-
-message CreateSigningCertificateRequest {
-
-/\*
-
-\* Identity information about who possesses the private / public key pair presented
-
-\*/
-
-Credentials credentials = 1 \[(google.api.field_behavior) = REQUIRED\];
-
-oneof key {
-
-/\*
-
-\* The public key to be stored in the requested certificate along with a signed
-
-\* challenge as proof of possession of the private key.
-
-\*/
-
-PublicKeyRequest public_key_request = 2 \[(google.api.field_behavior) = REQUIRED\];
-
-/\*
-
-\* PKCS#10 PEM-encoded certificate signing request
-
-\*
-
-\* Contains the public key to be stored in the requested certificate. All other CSR fields
-
-\* are ignored. Since the CSR is self-signed, it also acts as a proof of possession of
-
-\* the private key.
-
-\*
-
-\* In particular, the CSR's subject name is not verified, or tested for
-
-\* compatibility with its specified X.509 name type (e.g. email address).
-
-\*/
-
-bytes certificate_signing_request = 3 \[(google.api.field_behavior) = REQUIRED\];
-
-}
-
-}
-
-message Credentials {
-
-oneof credentials {
-
-/\*
-
-\* The OIDC token that identifies the caller
-
-\*/
-
-string oidc_identity_token = 1;
-
-}
-
-}
-
-message PublicKeyRequest {
-
-/\*
-
-\* The public key to be stored in the requested certificate
-
-\*/
-
-PublicKey public_key = 1 \[(google.api.field_behavior) = REQUIRED\];
-
-/\*
-
-\* Proof that the client possesses the private key; must be verifiable by provided public key
-
-\*
-
-\* This is a currently a signature over the \`sub\` claim from the OIDC identity token
-
-\*/
-
-bytes proof_of_possession = 2 \[(google.api.field_behavior) = REQUIRED\];
-
-}
-
-message PublicKey {
-
-/\*
-
-\* The cryptographic algorithm to use with the key material
-
-\*/
-
-PublicKeyAlgorithm algorithm = 1;
-
-/\*
-
-\* PKIX, ASN.1 DER or PEM-encoded public key. PEM is typically
-
-\* of type PUBLIC KEY.
-
-\*/
-
-string content = 2 \[(google.api.field_behavior) = REQUIRED\];
-
-}
-
-message SigningCertificate {
-
-/\*
-
-\* The certificate chain serialized with the leaf certificate first, followed
-
-\* by all intermediate certificates (if present), finishing with the root certificate.
-
-\*
-
-\* All values are PEM-encoded certificates.
-
-\*
-
-\* The leaf certificate contains an embedded Signed Certificate Timestamp (SCT) to
-
-\* verify inclusion of the certificate in a log. The SCT format is a SignedCertificateTimestampList,
-
-\* as defined in https://datatracker.ietf.org/doc/html/rfc6962#section-3.3
-
-\*/
-
-CertificateChain chain = 1;
-
-}
-
-\`\`\`
